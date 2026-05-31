@@ -44,7 +44,7 @@
   {
     "gameTitle": "버추어캅2(Virtua Cop2)",
     "date": "2016-01-09",
-    "genre": "슈팅",
+    "genre": "고전,슈팅",
     "memo": "초창기 목소리 비추",
     "url": "https://youtu.be/cQ5poxpFfxg?si=IFxrkD-7A0F0ovrz"
   },
@@ -1624,13 +1624,6 @@
     "url": "https://www.youtube.com/watch?v=MRVcviKvrV0"
   },
   {
-    "gameTitle": "바이오 하자드 RE:3] 4K 60FPS (Resident Evil 3 : RE)",
-    "date": "2025-11-16",
-    "genre": "고전,슈팅,신사,좀비,액션",
-    "memo": "",
-    "url": "https://www.youtube.com/watch?v=Wubm6L0kMCo"
-  },
-  {
     "gameTitle": "에이스 서바이버/ACESurvivor] 미소녀 좀비 판타지 망겜",
     "date": "2025-11-14",
     "genre": "신사,좀비,슈팅,액션",
@@ -1650,13 +1643,6 @@
     "genre": "8번출구,공포,퍼즐",
     "memo": "",
     "url": "https://www.youtube.com/watch?v=NwsDgo66MKY"
-  },
-  {
-    "gameTitle": "바이오 하자드 RE:2] 4K 60FPS (Resident Evil 2 : RE)",
-    "date": "2025-10-31",
-    "genre": "좀비,슈팅,신사,고전",
-    "memo": "",
-    "url": "https://www.youtube.com/watch?v=z4ChnBtcTFs"
   },
   {
     "gameTitle": "볼X핏] (Ball X Pit) 벽돌깨기(알카노이드) + 뱀파이어 서바이벌",
