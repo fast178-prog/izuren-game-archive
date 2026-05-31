@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title id="browserTitle">게임 유튜브 채널 영상 목록</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div>
+        <p id="siteEyebrow" class="eyebrow">Sample Game Channel Archive</p>
+        <h1 id="siteTitle">게임 유튜브 채널 영상 목록</h1>
+        <p id="siteDescription" class="desc">게임 제목, 게시날짜, 장르, 메모, 바로가기 링크를 한눈에 관리하는 예시 사이트입니다.</p>
+      </div>
+      <div class="count-box">
+        <strong id="totalCount">0</strong>
+        <span>개의 게임</span>
+      </div>
+    </header>
+
+    <section class="controls">
+      <input id="searchInput" type="search" placeholder="게임 제목, 장르, 메모 검색" />
+      <select id="sortSelect">
+        <option value="newest">최신순</option>
+        <option value="oldest">오래된순</option>
+        <option value="title">제목순</option>
+      </select>
+    </section>
+
+    <section class="genre-filter-card">
+      <div class="genre-filter-head">
+        <strong id="genreFilterTitle">장르 필터</strong>
+        <button id="clearGenreButton" type="button">전체 보기</button>
+      </div>
+      <div id="genreFilter" class="genre-filter"></div>
+    </section>
+
+    <section class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th id="thGameTitle">게임 제목</th>
+            <th id="thDate">게시날짜</th>
+            <th id="thGenre">장르</th>
+            <th id="thMemo">메모</th>
+            <th id="thLink">링크</th>
+          </tr>
+        </thead>
+        <tbody id="videoTable"></tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <script src="script.js?v=multi-genre-v2"></script>
+</body>
+</html>
