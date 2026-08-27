@@ -17,9 +17,8 @@ jobs:
           python-version: "3.12"
       - run: pip install -r manager/requirements-build.txt
       - run: pyinstaller --noconfirm --onefile --windowed --name IzurenVideoManager manager/app.py
+      - run: Copy-Item manager/install-autostart.ps1 dist/install-autostart.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: IzurenVideoManager-Windows
-          path: |
-            dist/IzurenVideoManager.exe
-            manager/install-autostart.ps1
+          path: dist/*
