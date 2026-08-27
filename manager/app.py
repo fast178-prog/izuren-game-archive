@@ -21,7 +21,7 @@ CHANNEL_HANDLE = "izuren_world"
 REPO = "fast178-prog/izuren-game-archive"
 BRANCH = "main"
 CUTOFF_UTC = dt.datetime(2026, 8, 27, 15, 0, tzinfo=dt.timezone.utc)
-CHECK_MINUTES = 30
+CHECK_MINUTES = 12 * 60
 DATA_DIR = Path(os.getenv("LOCALAPPDATA", Path.home())) / APP_NAME
 STATE_FILE = DATA_DIR / "state.json"
 SECRET_FILE = DATA_DIR / "secrets.bin"
