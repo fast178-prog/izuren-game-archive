@@ -184,6 +184,23 @@ class GitHub:
         url = f"https://api.github.com/repos/{REPO}/contents/videos.json"
         return http_json(url, self.headers, "PUT", payload)
 
+    def update_record(self, original, replacement):
+        videos, sha = self.load_videos()
+        original_url = normalize_url(original.get("url", ""))
+        target_index = next((index for index, row in enumerate(videos)
+                             if normalize_url(row.get("url", "")) == original_url), None)
+        if target_index is None:
+            raise RuntimeError("수정할 기존 항목을 최신 목록에서 찾지 못했습니다.")
+        replacement_url = normalize_url(replacement.get("url", ""))
+        if any(index != target_index and normalize_url(row.get("url", "")) == replacement_url
+               for index, row in enumerate(videos)):
+            raise RuntimeError("변경하려는 링크가 다른 항목에 이미 등록되어 있습니다.")
+        videos[target_index] = replacement
+        payload = {"message": f"Update {replacement['gameTitle']}", "branch": BRANCH, "sha": sha,
+                   "content": base64.b64encode((json.dumps(videos, ensure_ascii=False, indent=2) + "\n").encode()).decode()}
+        url = f"https://api.github.com/repos/{REPO}/contents/videos.json"
+        return http_json(url, self.headers, "PUT", payload)
+
 
 def normalize_url(url):
     parsed = urllib.parse.urlparse(url)
@@ -447,10 +464,54 @@ class App(tk.Tk):
             entry.delete(0, "end"); entry.insert(0, str(record.get(field, "")))
             win.lift()
 
+        def edit_record():
+            record = selected_record()
+            if record is None: return
+            original = dict(record)
+            dialog = tk.Toplevel(win)
+            dialog.title("기존 항목 수정")
+            dialog.geometry("720x440")
+            dialog.transient(win); dialog.grab_set()
+            tk.Label(dialog, text="기존 등록 항목 수정", font=("맑은 고딕", 15, "bold")).pack(pady=(18, 10))
+            edit_fields = {}
+            form = tk.Frame(dialog, padx=22)
+            form.pack(fill="both", expand=True)
+            for key, label in (("gameTitle", "제목"), ("date", "게시 날짜"), ("genre", "장르"),
+                               ("memo", "메모"), ("url", "링크")):
+                row = tk.Frame(form); row.pack(fill="x", pady=6)
+                tk.Label(row, text=label, width=12, anchor="w").pack(side="left")
+                entry = ttk.Entry(row, font=("맑은 고딕", 11))
+                entry.pack(side="left", fill="x", expand=True)
+                entry.insert(0, str(record.get(key, "")))
+                edit_fields[key] = entry
+
+            status = tk.Label(dialog, text="저장하면 공개 게임 목록에도 바로 반영됩니다.", fg="#556070")
+            status.pack(pady=5)
+
+            def save_edit():
+                replacement = {key: entry.get().strip() for key, entry in edit_fields.items()}
+                if not replacement["gameTitle"] or not replacement["url"]:
+                    messagebox.showwarning("확인", "제목과 링크는 필수입니다.", parent=dialog); return
+                status.config(text="저장 중…")
+                dialog.update_idletasks()
+                try:
+                    GitHub(self.secrets["github_token"]).update_record(original, replacement)
+                except Exception as exc:
+                    status.config(text="저장 실패")
+                    messagebox.showerror("수정 실패", str(exc), parent=dialog); return
+                record.clear(); record.update(replacement)
+                self.update_genre_catalog()
+                populate()
+                dialog.destroy()
+                messagebox.showinfo("수정 완료", "기존 게임 목록을 수정했습니다.", parent=win)
+
+            ttk.Button(dialog, text="수정 내용 저장", command=save_edit).pack(pady=(4, 18))
+
         ttk.Button(footer, text="제목 복사", command=lambda: copy_field("gameTitle")).pack(side="right", padx=4)
         ttk.Button(footer, text="장르 복사", command=lambda: copy_field("genre")).pack(side="right", padx=4)
         ttk.Button(footer, text="제목을 현재 항목에 적용", command=lambda: apply_field("gameTitle")).pack(side="right", padx=4)
         ttk.Button(footer, text="장르를 현재 항목에 적용", command=lambda: apply_field("genre")).pack(side="right", padx=4)
+        ttk.Button(footer, text="선택 항목 수정", command=edit_record).pack(side="right", padx=4)
 
         def populate(*_args):
             keyword = search_var.get().strip().lower()
@@ -467,6 +528,7 @@ class App(tk.Tk):
             count_label.config(text=f"{len(self.archive_view)}개")
 
         search_var.trace_add("write", populate)
+        tree.bind("<Double-1>", lambda _event: edit_record())
         populate()
         search.focus_set()
 
@@ -507,6 +569,8 @@ class App(tk.Tk):
                 GitHub(self.secrets["github_token"]).add_record(record)
             except Exception as exc:
                 messagebox.showerror("등록 실패", str(exc)); return
+            self.history.insert(0, dict(record))
+            self.update_genre_catalog()
         self.store.data["decisions"][key] = {"action": action, "at": now_iso()}
         self.store.data["candidates"].pop(key, None); self.store.save(); self.current_key = None; self.refresh()
         messagebox.showinfo("완료", "사이트 목록에 등록했습니다." if action == "register" else "이번 항목을 제외했습니다.")
