@@ -215,6 +215,16 @@ def suggest_genres(title, history):
     return [g for g, _ in sorted(weights.items(), key=lambda x: -x[1])[:5]]
 
 
+def genre_catalog(history):
+    counts = {}
+    for row in history:
+        for genre in str(row.get("genre", "")).split(","):
+            genre = genre.strip()
+            if genre:
+                counts[genre] = counts.get(genre, 0) + 1
+    return [genre for genre, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -264,7 +274,18 @@ class App(tk.Tk):
             entry.pack(fill="x")
             self.fields[key] = entry
         self.suggestions = tk.Frame(right, bg="white")
-        self.suggestions.pack(fill="x", pady=10)
+        tk.Label(right, text="추천 장르", bg="white", fg="#384152").pack(anchor="w", pady=(10, 3))
+        self.suggestions.pack(fill="x", pady=(0, 8))
+        tk.Label(right, text="기존 장르 전체 · 사용 빈도순", bg="white", fg="#384152").pack(anchor="w", pady=(4, 3))
+        catalog_frame = tk.Frame(right, bg="white")
+        catalog_frame.pack(fill="both", expand=True, pady=(0, 10))
+        self.genre_catalog_text = tk.Text(catalog_frame, height=8, wrap="word", font=("맑은 고딕", 10),
+                                          bg="#f7f8fa", fg="#263247", relief="solid", bd=1,
+                                          padx=10, pady=8, cursor="arrow")
+        catalog_scroll = ttk.Scrollbar(catalog_frame, orient="vertical", command=self.genre_catalog_text.yview)
+        self.genre_catalog_text.configure(yscrollcommand=catalog_scroll.set)
+        self.genre_catalog_text.pack(side="left", fill="both", expand=True)
+        catalog_scroll.pack(side="right", fill="y")
         buttons = tk.Frame(right, bg="white")
         buttons.pack(fill="x", side="bottom")
         ttk.Button(buttons, text="등록", command=lambda: self.decide("register")).pack(side="left")
@@ -332,6 +353,7 @@ class App(tk.Tk):
                 pass
 
     def refresh(self):
+        self.update_genre_catalog()
         self.keys = sorted(self.store.data["candidates"], key=lambda k: self.store.data["candidates"][k]["publishedAt"], reverse=True)
         self.listbox.delete(0, "end")
         for key in self.keys:
@@ -340,6 +362,13 @@ class App(tk.Tk):
             self.listbox.insert("end", f"[{icon}] {item['title']}")
         if self.keys:
             self.listbox.selection_set(0); self.show(self.keys[0])
+
+    def update_genre_catalog(self):
+        genres = genre_catalog(self.history)
+        self.genre_catalog_text.config(state="normal")
+        self.genre_catalog_text.delete("1.0", "end")
+        self.genre_catalog_text.insert("1.0", "  ·  ".join(genres) if genres else "기존 장르를 불러오는 중입니다.")
+        self.genre_catalog_text.config(state="disabled")
 
     def select_candidate(self, _event=None):
         sel = self.listbox.curselection()
