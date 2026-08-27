@@ -258,8 +258,13 @@ class App(tk.Tk):
         left.pack(side="left", fill="y")
         left.pack_propagate(False)
         tk.Label(left, text="승인 대기", font=("맑은 고딕", 14, "bold"), bg="white", pady=12).pack()
-        self.listbox = tk.Listbox(left, font=("맑은 고딕", 10), bd=0, highlightthickness=0)
-        self.listbox.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        pending_frame = tk.Frame(left, bg="white")
+        pending_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self.listbox = tk.Listbox(pending_frame, font=("맑은 고딕", 10), bd=0, highlightthickness=0)
+        pending_scroll = ttk.Scrollbar(pending_frame, orient="vertical", command=self.listbox.yview)
+        self.listbox.configure(yscrollcommand=pending_scroll.set)
+        self.listbox.pack(side="left", fill="both", expand=True)
+        pending_scroll.pack(side="right", fill="y")
         self.listbox.bind("<<ListboxSelect>>", self.select_candidate)
         right = tk.Frame(body, bg="white", padx=22, pady=18, bd=1, relief="solid")
         right.pack(side="left", fill="both", expand=True, padx=(14, 0))
@@ -279,12 +284,15 @@ class App(tk.Tk):
         tk.Label(right, text="기존 장르 전체 · 사용 빈도순", bg="white", fg="#384152").pack(anchor="w", pady=(4, 3))
         catalog_frame = tk.Frame(right, bg="white")
         catalog_frame.pack(fill="both", expand=True, pady=(0, 10))
-        self.genre_catalog_text = tk.Text(catalog_frame, height=8, wrap="word", font=("맑은 고딕", 10),
-                                          bg="#f7f8fa", fg="#263247", relief="solid", bd=1,
-                                          padx=10, pady=8, cursor="arrow")
-        catalog_scroll = ttk.Scrollbar(catalog_frame, orient="vertical", command=self.genre_catalog_text.yview)
-        self.genre_catalog_text.configure(yscrollcommand=catalog_scroll.set)
-        self.genre_catalog_text.pack(side="left", fill="both", expand=True)
+        self.genre_canvas = tk.Canvas(catalog_frame, height=150, bg="#f7f8fa", relief="solid", bd=1,
+                                      highlightthickness=0)
+        self.genre_buttons = tk.Frame(self.genre_canvas, bg="#f7f8fa", padx=6, pady=6)
+        self.genre_window = self.genre_canvas.create_window((0, 0), window=self.genre_buttons, anchor="nw")
+        catalog_scroll = ttk.Scrollbar(catalog_frame, orient="vertical", command=self.genre_canvas.yview)
+        self.genre_canvas.configure(yscrollcommand=catalog_scroll.set)
+        self.genre_buttons.bind("<Configure>", lambda _e: self.genre_canvas.configure(scrollregion=self.genre_canvas.bbox("all")))
+        self.genre_canvas.bind("<Configure>", lambda e: self.genre_canvas.itemconfigure(self.genre_window, width=e.width))
+        self.genre_canvas.pack(side="left", fill="both", expand=True)
         catalog_scroll.pack(side="right", fill="y")
         buttons = tk.Frame(right, bg="white")
         buttons.pack(fill="x", side="bottom")
@@ -292,6 +300,7 @@ class App(tk.Tk):
         ttk.Button(buttons, text="이번만 제외", command=lambda: self.decide("exclude")).pack(side="left", padx=8)
         ttk.Button(buttons, text="보류", command=lambda: self.decide("hold")).pack(side="left")
         ttk.Button(buttons, text="지금 새로 확인", command=self.check_async).pack(side="right")
+        ttk.Button(buttons, text="기존 목록 검색", command=self.open_archive).pack(side="right", padx=8)
 
     def startup(self):
         if not self.secrets.get("youtube_api_key") or not self.secrets.get("github_token"):
@@ -365,10 +374,101 @@ class App(tk.Tk):
 
     def update_genre_catalog(self):
         genres = genre_catalog(self.history)
-        self.genre_catalog_text.config(state="normal")
-        self.genre_catalog_text.delete("1.0", "end")
-        self.genre_catalog_text.insert("1.0", "  ·  ".join(genres) if genres else "기존 장르를 불러오는 중입니다.")
-        self.genre_catalog_text.config(state="disabled")
+        for child in self.genre_buttons.winfo_children():
+            child.destroy()
+        if not genres:
+            tk.Label(self.genre_buttons, text="기존 장르를 불러오는 중입니다.", bg="#f7f8fa").grid(row=0, column=0)
+            return
+        for index, genre in enumerate(genres):
+            row, column = divmod(index, 4)
+            button = ttk.Button(self.genre_buttons, text=genre, command=lambda g=genre: self.add_genre(g))
+            button.grid(row=row, column=column, sticky="ew", padx=3, pady=3)
+        for column in range(4):
+            self.genre_buttons.grid_columnconfigure(column, weight=1)
+
+    def open_archive(self):
+        win = tk.Toplevel(self)
+        win.title("기존 등록 목록 검색")
+        win.geometry("1120x650")
+        win.minsize(850, 500)
+        win.configure(bg="#f5f3ee")
+
+        top = tk.Frame(win, bg="#17213a", padx=18, pady=14)
+        top.pack(fill="x")
+        tk.Label(top, text="기존 등록 목록", font=("맑은 고딕", 16, "bold"), fg="white", bg="#17213a").pack(side="left")
+        search_var = tk.StringVar()
+        search = ttk.Entry(top, textvariable=search_var, width=42, font=("맑은 고딕", 11))
+        search.pack(side="right")
+        tk.Label(top, text="검색", fg="#dce5f8", bg="#17213a").pack(side="right", padx=8)
+
+        table_frame = tk.Frame(win, bg="#f5f3ee", padx=14, pady=14)
+        table_frame.pack(fill="both", expand=True)
+        columns = ("title", "date", "genre", "memo", "url")
+        tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
+        headings = {"title": "제목", "date": "날짜", "genre": "장르", "memo": "메모", "url": "링크"}
+        widths = {"title": 330, "date": 95, "genre": 180, "memo": 190, "url": 280}
+        for column in columns:
+            tree.heading(column, text=headings[column])
+            tree.column(column, width=widths[column], minwidth=70, stretch=column in ("title", "memo", "url"))
+        yscroll = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        xscroll = ttk.Scrollbar(table_frame, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=yscroll.set, xscrollcommand=xscroll.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        yscroll.grid(row=0, column=1, sticky="ns")
+        xscroll.grid(row=1, column=0, sticky="ew")
+        table_frame.grid_rowconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(0, weight=1)
+
+        footer = tk.Frame(win, bg="white", padx=14, pady=12)
+        footer.pack(fill="x")
+        count_label = tk.Label(footer, text="", bg="white", fg="#556070")
+        count_label.pack(side="left")
+
+        def selected_record():
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo("선택 필요", "기존 목록에서 항목을 먼저 선택하세요.", parent=win)
+                return None
+            return self.archive_view[int(selected[0])]
+
+        def copy_field(field):
+            record = selected_record()
+            if record is None: return
+            self.clipboard_clear(); self.clipboard_append(str(record.get(field, "")))
+            self.update()
+
+        def apply_field(field):
+            record = selected_record()
+            if record is None: return
+            if not self.current_key:
+                messagebox.showinfo("승인 항목 없음", "왼쪽 승인 대기에서 적용할 항목을 먼저 선택하세요.", parent=win)
+                return
+            entry = self.fields[field]
+            entry.delete(0, "end"); entry.insert(0, str(record.get(field, "")))
+            win.lift()
+
+        ttk.Button(footer, text="제목 복사", command=lambda: copy_field("gameTitle")).pack(side="right", padx=4)
+        ttk.Button(footer, text="장르 복사", command=lambda: copy_field("genre")).pack(side="right", padx=4)
+        ttk.Button(footer, text="제목을 현재 항목에 적용", command=lambda: apply_field("gameTitle")).pack(side="right", padx=4)
+        ttk.Button(footer, text="장르를 현재 항목에 적용", command=lambda: apply_field("genre")).pack(side="right", padx=4)
+
+        def populate(*_args):
+            keyword = search_var.get().strip().lower()
+            self.archive_view = []
+            tree.delete(*tree.get_children())
+            for record in self.history:
+                target = " ".join(str(record.get(key, "")) for key in ("gameTitle", "date", "genre", "memo", "url")).lower()
+                if keyword and keyword not in target:
+                    continue
+                index = len(self.archive_view)
+                self.archive_view.append(record)
+                tree.insert("", "end", iid=str(index), values=(record.get("gameTitle", ""), record.get("date", ""),
+                            record.get("genre", ""), record.get("memo", ""), record.get("url", "")))
+            count_label.config(text=f"{len(self.archive_view)}개")
+
+        search_var.trace_add("write", populate)
+        populate()
+        search.focus_set()
 
     def select_candidate(self, _event=None):
         sel = self.listbox.curselection()
